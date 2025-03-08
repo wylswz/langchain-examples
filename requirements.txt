@@ -1,0 +1,22 @@
+# UI
+streamlit
+
+# Data process
+pdfplumber
+
+# model & framework
+ollama
+prompt-template
+langchain
+langchain_community
+langchain_ollama
+langchain_huggingface
+langchain_experimental
+
+
+langgraph
+# retriever
+faiss-cpu
+semantic-chunkers
+open-text-embeddings
+sentence-transformers
