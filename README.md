@@ -1,4 +1,3 @@
-to start server
-```sh
-streamlit.cmd run app.py
-```
+# Using the example
+
+Please install the god damn `ollama` and dependencies using `pip install -r requirements.txt` and evaluate the notebook.
