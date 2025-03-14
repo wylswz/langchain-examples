@@ -1,5 +1,9 @@
 # Data process
 pdfplumber
+pdf2img
+unstructured # see https://blog.langchain.dev/semi-structured-multi-modal-rag/
+unstructured_inference
+pi_heif
 
 # model & framework
 ollama
@@ -9,6 +13,7 @@ langchain_community
 langchain_ollama
 langchain_huggingface
 langchain_experimental
+langchain_chroma
 
 
 langgraph
