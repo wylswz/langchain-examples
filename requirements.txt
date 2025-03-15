@@ -3,6 +3,8 @@ pdfplumber
 pdf2img
 unstructured # see https://blog.langchain.dev/semi-structured-multi-modal-rag/
 unstructured_inference
+unstructured_pytesseract
+tesseract
 pi_heif
 
 # model & framework
