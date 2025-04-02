@@ -6,6 +6,7 @@ unstructured_inference
 unstructured_pytesseract
 tesseract
 pi_heif
+qdrant_client
 
 # model & framework
 ollama
@@ -16,7 +17,7 @@ langchain_ollama
 langchain_huggingface
 langchain_experimental
 langchain_chroma
-
+langchain_qdrant
 
 langgraph
 sentence-transformers
@@ -25,3 +26,6 @@ faiss-cpu
 semantic-chunkers
 open-text-embeddings
 sentence-transformers
+
+diskcache
+

@@ -2,3 +2,6 @@ venv/
 library/*
 .ipynb_checkpoints/
 cache/
+tmp/
+*.pcy
+__pycache__/
