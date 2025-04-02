@@ -20,14 +20,27 @@ from diskcache import Cache
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import VectorParams, Distance
+from functools import cache as fc
 
 cache = Cache("tmp")
-LIB_ROOT = 'library'
 VECTOR_CACHE_ROOT = 'cache'
 
 if not os.path.exists(VECTOR_CACHE_ROOT):
     os.mkdir(VECTOR_CACHE_ROOT)
 
+# be careful, this is related to embedder
+VECTOR_SIZE = 768
+
+@fc
+def get_embedder():
+    EMBED_MODEL = 'nomic-embed-text'
+    embedder = OllamaEmbeddings(model=EMBED_MODEL)
+    return embedder
+
+@fc
+def get_text_splitter():
+    text_splitter = SemanticChunker(embeddings=get_embedder())
+    return text_splitter
 
 def md5(filename):
     import hashlib
@@ -149,9 +162,9 @@ def get_img_summaries(summarizer, image_path) -> tuple[list[str], list[str]]:
 
 
 
-def init_vector_store(text_splitter, embedder, collection_name):
+def init_vector_store(collection_name):
     """
-    把所有 library 目录下的文档一起构建一个向量数据库
+    把所有 collection_name 目录下的文档一起构建一个向量数据库
     """
     @cache.memoize()
     def to_doc(path: str):
@@ -178,14 +191,14 @@ def init_vector_store(text_splitter, embedder, collection_name):
         print(f'loading doc {path}')
         docs = loader.load()
         print(f'spliting {path}')
-        ret = text_splitter.split_documents(docs)
+        ret = get_text_splitter().split_documents(docs)
 
         with open(cache_file, 'wb') as f:
             f.write(adapter.dump_json(ret))
         return ret
     docfiles = []
-    for file in os.listdir(LIB_ROOT):
-        docfiles.append(os.path.join(LIB_ROOT, file))
+    for file in os.listdir(collection_name):
+        docfiles.append(os.path.join(collection_name, file))
     
     docs = map(to_doc, docfiles)
     documents = [d for ds in docs if ds is not None for d in ds]
@@ -194,14 +207,18 @@ def init_vector_store(text_splitter, embedder, collection_name):
     client = QdrantClient()
     client.create_collection(
         collection_name=collection_name,
-        vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+        vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
         )
-    vector = Qdrant(client=client, embeddings=embedder, collection_name=collection_name)
+    vector = Qdrant(client=client, embeddings=get_embedder(), collection_name=collection_name)
     vector.add_documents(documents)
     return vector
 
 
-def get_vector_store(embedder, collection_name):
+def get_vector_store(collection_name):
     client = QdrantClient()
-    vector = Qdrant(client=client, embeddings=embedder, collection_name=collection_name)
+    vector = Qdrant(client=client, embeddings=get_embedder(), collection_name=collection_name)
     return vector
+
+
+if __name__ == '__main__':
+    init_vector_store(collection_name='library')

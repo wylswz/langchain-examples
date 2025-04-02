@@ -20,25 +20,23 @@ from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.prompts import PromptTemplate
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import BaseMessage, BaseMessageChunk, AIMessageChunk
-from langchain.agents import create_react_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_core.documents import Document
 from typing_extensions import TypedDict
 from typing import Annotated
-
+from collections import Counter
+from utils import remove_think
 import operator
 
-from common import init_vector_store, get_vector_store
+from common import get_vector_store
 
-EMBED_MODEL = 'nomic-embed-text'
-LANG_MODEL = 'mistral'
+LANG_MODEL = 'deepseek-r1:8b'
 
-embedder = OllamaEmbeddings(model=EMBED_MODEL)
-text_splitter = SemanticChunker(embedder)
-vector_store = get_vector_store(embedder, collection_name="multi-agent").as_retriever()
+vector_store = get_vector_store(collection_name="library").as_retriever()
 llm = ChatOllama(model = LANG_MODEL)
 
 @tool(parse_docstring=True)
-def retrieve_documents(query: str) -> list[Document]:
+def retrieve_lyrics(query: str) -> list[Document]:
     """retrieve documents from library
 
     Args:
@@ -49,26 +47,22 @@ def retrieve_documents(query: str) -> list[Document]:
 
 rapper_1_background = "A real gangster rapper, a thug, a bitch nigga, sell drugs, fuck bitches, burn cars and drop bombs."
 rapper_2_background = "A rap lover, primary job is a police officer."
-background = "you are in an underground rap battle"
-
-
-TMPL = """
-Do rap battle with available tools
-
-Begin!
-Rap the shit back!
-Context: {context}
-Question: {input}
+background = """
+you are in an underground rap battle, you will diss each other as hard as you can.
+don't rap more than 20 sentences each round.
+better flow, higher marks.
+mixing different styles and beats is a big plus. 
 """
-PROMPT = PromptTemplate.from_template(TMPL)
 
-chain = PROMPT | llm
 
 class State(TypedDict):
     rounds: Annotated[list[tuple], operator.add]
     total_rounds: int
     # winner of each round
     winner: Annotated[list[str], operator.add]
+
+class JudgeResult(TypedDict):
+    winner_rapper_name: str
 
 def get_prompt(state: State):
     if state['rounds']:
@@ -78,39 +72,98 @@ def get_prompt(state: State):
         """
     return "Please start rap"
 
+def get_references(background, prompt) -> list[Document]:
+    docs: list[Document] = vector_store.invoke(background) + vector_store.invoke(prompt)
+    '\n'.join(map(lambda d: d.page_content, docs))
+
+RAPPER_PROMPT = """
+{context}
+
+{messages}
+
+you can refer to following lyrics in this battle
+<references>
+{references}
+</references>
+
+Your final answer shoud be included in tag <answer> and </answer>
+"""
+
+
+JUDGE_PROMPT = """
+I am going to judge which rapper wins this round
+===
+{rapper_1_name}'s lyrics:
+{rapper_1_lyrics}
+===
+{rapper_2_name}'s lyrics:
+{rapper_2_lyrics}
+===
+
+"""
+
+agent_1 = create_react_agent(
+    model=llm, 
+    tools=[retrieve_lyrics], 
+    prompt=PromptTemplate.from_template(f"{background}, you are {rapper_2_background}. your opponent is a {rapper_1_background}"))
+
+agent_2 = create_react_agent(
+    model=llm,
+    tools=[retrieve_lyrics],
+    prompt=PromptTemplate.from_template(f"{background}, you are {rapper_2_background}. your opponent is a {rapper_1_background}")
+)
+
+judge_llm = PromptTemplate.from_template(JUDGE_PROMPT) | llm.with_structured_output(JudgeResult)
+rapper_llm = PromptTemplate.from_template(RAPPER_PROMPT) | llm
+
 def rapper_1(state: State):
-    context = f"{background}, you are {rapper_1_background}, and your opponent is {rapper_2_background}"
-    res = chain.invoke({
-        'input': get_prompt(state),
-        'context': context,
-        "intermediate_steps": [] 
+    ctx = f"{background}, you are {rapper_1_background}, and your opponent is {rapper_2_background}"
+    res = rapper_llm.invoke({
+        'context': f"{background}, you are {rapper_1_background}, and your opponent is {rapper_2_background}",
+        'messages': get_prompt(state),
+        'references': get_references(ctx, get_prompt(state))
     })
     return Command(
         goto=rapper_2.__name__,
-        update={'rounds': [(rapper_1.__name__, res.content)]}
+        update={'rounds': [(rapper_1.__name__, remove_think(res.content))]}
     )
         
         
 
 def rapper_2(state: State):
-    context = f"{background}, you are {rapper_2_background}. your opponent is a {rapper_1_background}"
-    res = chain.invoke({
-        'input': get_prompt(state),
-        'context': context,
-        "intermediate_steps": [] 
+    if len(state['rounds']) >= state['total_rounds'] * 2:
+        return Command(
+            goto=judge.__name__,
+        )
+    ctx = f"{background}, you are {rapper_2_background}. your opponent is a {rapper_1_background}"
+    res = rapper_llm.invoke({
+        'context': ctx,
+        'messages': get_prompt(state),
+        'references': get_references(ctx, get_prompt(state))
     })
     return Command(
         goto=rapper_1.__name__,
-        update={'rounds': [(rapper_2.__name__, res.content)]}
+        update={'rounds': [(rapper_2.__name__, remove_think(res.content))]}
     )
         
 def judge(state: State):
     check_round = len(state['winner'])
     if check_round >= state['total_rounds']:
         return Command(goto=END)
+    i = check_round * 2
+    rapper_1_lyrics = state['rounds'][i]
+    rapper_2_lyrics = state['rounds'][i + 1]
+
+    res: JudgeResult = judge_llm.invoke({
+        'rapper_1_name': rapper_1.__name__,
+        'rapper_2_name': rapper_2.__name__,
+        'rapper_1_lyrics': rapper_1_lyrics,
+        'rapper_2_lyrics': rapper_2_lyrics
+    })
+    
     return Command(
         goto=judge.__name__,
-        update={'winner': [rapper_1.__name__]}
+        update={'winner': [res['winner_rapper_name']]}
     )
 
 
@@ -128,6 +181,7 @@ config = {
 }
 
 
-for chunk in battle.stream({'total_rounds': 10}, config=config, stream_mode="messages"):
-    if isinstance(chunk[0], AIMessageChunk):
-        print(chunk[0].content, end=' ')
+for (chunk, meta) in battle.stream({'total_rounds': 2}, config=config, stream_mode="messages"):
+    thinking = False
+    if isinstance(chunk, AIMessageChunk):
+        print(chunk.content, end='')
