@@ -14,15 +14,17 @@ def remove_think(text: str) -> str:
     # Use DOTALL flag to match across multiple lines
     return re.sub(pattern, '', text, flags=re.DOTALL).strip()
 
+def read_lines(prompt):
+    print(prompt)
+    TERM = "#"
+    sb = ''
+    while True:
+        line = input()
+        if TERM in line:
+            return sb
+        sb = sb + line + '\n'
+
+
 
 if __name__ == '__main__':
-    print(remove_think("""
-aaa
-<think>
-                       
-                       asdasdzxc
-                       zxc
-                       zxc
-                       zxc
-                       </think>
-"""))
+    print(read_lines())

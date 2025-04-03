@@ -1,4 +1,4 @@
-from langchain_ollama import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain_community.document_loaders import PDFPlumberLoader, CSVLoader
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_core.documents import Document
@@ -21,6 +21,8 @@ import os
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import VectorParams, Distance
 from functools import cache as fc
+from PIL import Image
+import io
 
 cache = Cache("tmp")
 VECTOR_CACHE_ROOT = 'cache'
@@ -30,6 +32,12 @@ if not os.path.exists(VECTOR_CACHE_ROOT):
 
 # be careful, this is related to embedder
 VECTOR_SIZE = 768
+
+def get_image_summarizer():
+    SUMMARISE_MODEL = "gemma3:4b"
+    summarizer = OllamaLLM(model=SUMMARISE_MODEL)
+    return summarizer
+
 
 @fc
 def get_embedder():
@@ -122,45 +130,6 @@ def gen_text_and_table_summaries(summarizer, text_splitter, path):
     texts, tables = text_splitter.split_text(" ".join(texts)), tables
     return (texts, tables), generate_text_summaries(texts, tables, True)
 
-def get_img_summaries(summarizer, image_path) -> tuple[list[str], list[str]]:
-    import base64
-    """
-    summaries all images under dir
-    """
-    def encode_image(path):
-        with open(path, 'rb') as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
-    
-    def image_summarize(img_base64, prompt):
-        """Make image summary"""
-
-        msg = summarizer.invoke(
-            [
-                HumanMessage(
-                    content=[
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"},
-                        },
-                    ]
-                )
-            ]
-        )
-        return msg
-        # Store base64 encoded images
-
-    # Prompt
-    prompt = """You are an assistant tasked with summarizing images for retrieval. \
-    These summaries will be embedded and used to retrieve the raw image. \
-    Give a concise summary of the image that is well optimized for retrieval."""
-    # Apply to images
-    base64_image = encode_image(image_path)
-
-
-    return base64_image, image_summarize(base64_image, prompt)
-
-
 
 def init_vector_store(collection_name):
     """
@@ -220,5 +189,58 @@ def get_vector_store(collection_name):
     return vector
 
 
+def get_img_summaries_llm(image_path, additional_args: str) -> tuple[str, str]:
+    import base64
+    """
+    summarise image using multi-modal llm
+    """
+    def encode_image(path):
+        with Image.open(path) as img:
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=10)
+            image_data = buffer.getvalue()
+            encoded_image = base64.b64encode(image_data).decode('utf-8')
+            return encoded_image
+    
+    def image_summarize(img_base64, prompt):
+        """Make image summary"""
+        msg = get_image_summarizer().invoke(
+            [
+                HumanMessage(
+                    content=[
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"},
+                        },
+                    ]
+                )
+            ]
+        )
+        return msg
+        # Store base64 encoded images
+
+    # Prompt
+    prompt = f"you will summarise the content of given image base64. {additional_args}"
+    # Apply to images
+    base64_image = encode_image(image_path)
+    return base64_image, image_summarize(base64_image, prompt)
+
+@fc
+def get_pipeline(task, model):
+    from transformers import pipeline
+
+    return pipeline(task, model)
+
+def img_to_txt(path):
+    """
+    summarise image using img-to-txt models
+    """
+    from transformers import pipeline
+    captioner = pipeline("image-to-text", model="Salesforce/blip-image-captioning-base")
+    ret = captioner(path, max_new_tokens=100)
+    return ret[-1]['generated_text']
+
+
 if __name__ == '__main__':
-    init_vector_store(collection_name='library')
+    print(img_to_txt('assets/rappers/eazy.jpg'))
