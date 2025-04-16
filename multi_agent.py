@@ -25,7 +25,7 @@ from langchain_core.documents import Document
 from typing_extensions import TypedDict
 from typing import Annotated
 from collections import Counter
-from utils import remove_think, read_lines
+from utils import remove_think
 import operator
 
 from common import get_vector_store, get_img_summaries_llm, img_to_txt
@@ -125,7 +125,7 @@ rapper_llm = PromptTemplate.from_template(RAPPER_PROMPT) | llm
 
 def rapper_1(state: State):
     if state['play_as'] == rapper_1.__name__:
-        lyrics = read_lines('rap the ass')
+        lyrics = interrupt("rap that ass")
     else:
         ctx = f"{background}, you are {rapper_1_background}, and your opponent is {rapper_2_background}, he's like {rapper_2_appearance}"
         print("\nrapper_1's round")
@@ -148,7 +148,7 @@ def rapper_2(state: State):
             goto=judge.__name__,
         )
     if state['play_as'] == rapper_2.__name__:
-        lyrics = read_lines('rap the ass')
+        lyrics = interrupt("rap that ass")
     else:
         ctx = f"{background}, you are {rapper_2_background}. your opponent is a {rapper_1_background}, he's like {rapper_1_appearance}"
         print("\nrapper_2's round")
@@ -191,15 +191,4 @@ g.add_node(rapper_1)
 g.add_node(rapper_2)
 g.add_node(judge)
 
-battle = g.compile(checkpointer=MemorySaver())
-print(battle.get_graph().draw_ascii())
-config = {
-    'thread_id': '1',
-    'recursion_limit': 100,
-}
-
-
-for (chunk, meta) in battle.stream({'total_rounds': 2, 'play_as': rapper_1.__name__}, config=config, stream_mode="messages"):
-    thinking = False
-    if isinstance(chunk, AIMessageChunk):
-        print(chunk.content, end='')
+graph = g.compile(checkpointer=MemorySaver())

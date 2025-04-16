@@ -2,7 +2,13 @@
 
 Install `ollama` and dependencies using `pip install -r requirements.txt` and evaluate the notebook.
 
-Add `.pdf` files to `library/` directory as knowledge base
+Add `.pdf` files to `library/` directory as knowledge base.
+
+To visualize all graphs
+```
+pip install --upgrade "langgraph-cli[inmem]"
+langgraph dev
+```
 
 # Vector store
 this project uses Qdrant as vector store.

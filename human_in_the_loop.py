@@ -43,28 +43,28 @@ g.add_edge(propose_step.__name__, human_approve_step.__name__)
 
 g.add_conditional_edges(human_approve_step.__name__, approved, [END, propose_step.__name__])
 
-app = g.compile(checkpointer=MemorySaver())
+# app = g.compile(checkpointer=MemorySaver())
 
 
-config = {'thread_id': '1'}
+# config = {'thread_id': '1'}
 
-ended = False
-stream = app.stream({
-        "foo": "bar"
-    }, config=config)
-while not ended:
-    if not stream:
-        break
-    interrupted = False
-    for t in stream:
-        if '__interrupt__' in t:
-            approved = input(t['__interrupt__'])
-            stream = app.invoke(Command(resume=approved), config=config, stream_mode="updates")
-            interrupted = True
-        else:
-            print(t)
+# ended = False
+# stream = app.stream({
+#         "foo": "bar"
+#     }, config=config)
+# while not ended:
+#     if not stream:
+#         break
+#     interrupted = False
+#     for t in stream:
+#         if '__interrupt__' in t:
+#             approved = input(t['__interrupt__'])
+#             stream = app.invoke(Command(resume=approved), config=config, stream_mode="updates")
+#             interrupted = True
+#         else:
+#             print(t)
 
-    if not interrupted:
-        # current stream is consumed without interruption
-        # so we can end the loop
-        stream = []    
+#     if not interrupted:
+#         # current stream is consumed without interruption
+#         # so we can end the loop
+#         stream = []    

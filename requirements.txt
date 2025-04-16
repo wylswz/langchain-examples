@@ -18,7 +18,7 @@ langchain_huggingface
 langchain_experimental
 langchain_chroma
 langchain_qdrant
-
+langgraph-cli[inmem]
 langgraph
 sentence-transformers
 # retriever
