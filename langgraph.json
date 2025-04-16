@@ -1,0 +1,8 @@
+{
+    "dependencies": ["./common.py"],
+    "graphs": {
+        "multi_agent": "./multi_agent.py:g",
+        "human_in_the_loop": "./human_in_the_loop.py:g"
+    },
+    "env": ".env"
+  }
