@@ -1,8 +1,7 @@
 {
     "dependencies": ["./common.py"],
     "graphs": {
-        "multi_agent": "./multi_agent.py:g",
-        "human_in_the_loop": "./human_in_the_loop.py:g"
+        "memory_chat_bot": "./memory-2.py:g"
     },
     "env": ".env"
   }

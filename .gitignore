@@ -6,3 +6,4 @@ tmp/
 *.pcy
 __pycache__/
 .langgraphapi/
+.langgraph_api/
