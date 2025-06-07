@@ -23,7 +23,7 @@ langgraph
 sentence-transformers
 # retriever
 faiss-cpu
-semantic-chunkers
+semantic-chunkers; python_version < "3.13"
 open-text-embeddings
 sentence-transformers
 
