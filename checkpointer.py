@@ -7,10 +7,12 @@ from langgraph.graph import StateGraph, START, END
 import random
 from operator import add
 
+
+# This is a demo for checkpointer
+# graph step may fail, in which case, we can resume the graph from the last checkpoint
+
 class MyException(Exception):
     pass
-
-
 
 def add_messages(messages: Sequence[BaseMessage], new_messages: Sequence[BaseMessage] | BaseMessage) -> Sequence[BaseMessage]:
     if isinstance(new_messages, BaseMessage):
