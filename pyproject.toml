@@ -1,0 +1,42 @@
+[project]
+name = "langchain-examples"
+version = "0.1.0"
+description = "LangChain and LangGraph examples"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    # Data process
+    "pdfplumber",
+    "pdf2img",
+    "unstructured",  # see https://blog.langchain.dev/semi-structured-multi-modal-rag/
+    "unstructured-inference",
+    "unstructured-pytesseract",
+    "tesseract",
+    "pi-heif",
+    "qdrant-client",
+    # model & framework
+    "ollama",
+    "prompt-template",
+    "langchain",
+    "langchain-community",
+    "langchain-ollama",
+    "langchain-huggingface",
+    "langchain-experimental",
+    "langchain-chroma",
+    "langchain-qdrant",
+    "langgraph-cli[inmem]",
+    "langgraph",
+    "sentence-transformers",
+    # retriever
+    "faiss-cpu",
+    "semantic-chunkers; python_version < '3.13'",
+    "open-text-embeddings",
+    "diskcache",
+]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["*.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
