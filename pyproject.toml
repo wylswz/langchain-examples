@@ -3,7 +3,7 @@ name = "langchain-examples"
 version = "0.1.0"
 description = "LangChain and LangGraph examples"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     # Data process
     "pdfplumber",
@@ -17,7 +17,7 @@ dependencies = [
     # model & framework
     "ollama",
     "prompt-template",
-    "langchain",
+    "langchain >= 1.0.2",
     "langchain-community",
     "langchain-ollama",
     "langchain-huggingface",

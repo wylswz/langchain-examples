@@ -19,3 +19,6 @@ this project uses Qdrant as vector store.
 # for OCR
 Tesseract
 ```
+
+# Archive
+Codes in archive are based on langchain 0.x.
