@@ -1,0 +1,13 @@
+{
+    "dependencies": [
+        "langchain",
+        "langchain-ollama",
+        "langchain-tavily",
+        "langgraph"
+    ],
+    "graphs": {
+        "middleware-example": "./middleware-example.py:agent",
+        "checkpointer": "./checkpointer.py:graph"
+    },
+    "env": ".env"
+  }

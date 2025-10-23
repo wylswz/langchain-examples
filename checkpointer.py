@@ -1,12 +1,13 @@
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.types import Command
 from typing_extensions import Annotated, Sequence, TypedDict
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
 import random
 from operator import add
 
+
+from langgraph.config import get_stream_writer
 
 # This is a demo for checkpointer
 # graph step may fail, in which case, we can resume the graph from the last checkpoint
@@ -50,33 +51,3 @@ graph.add_edge(START, "step_1")
 graph.add_edge("step_1", "step_2")
 graph.add_edge("step_2", "step_3")
 graph.add_edge("step_3", END)
-
-saver = MemorySaver()
-cg = graph.compile(checkpointer=saver)
-
-def run():
-    stream = cg.stream({"messages": []}, {"configurable": {"thread_id": "thread-1"}})
-    for event in stream:
-        print(event)
-
-def resume():
-    stream = cg.stream(None, {"configurable": {"thread_id": "thread-1"}})
-    for event in stream:
-        print(event)
-
-try:
-    run()
-except MyException as e:
-    print("failed for the first time")
-
-try:
-    resume()
-except MyException as e:
-    print("failed for the second time")
-
-try:
-    resume()
-except MyException as e:
-    print("failed for the third time")
-
-print(cg.get_state({"configurable": {"thread_id": "thread-1"}}).values)
