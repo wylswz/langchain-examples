@@ -3,12 +3,12 @@ name = "langchain-examples"
 version = "0.1.0"
 description = "LangChain and LangGraph examples"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     # Data process
     "pdfplumber",
     "pdf2img",
-    "unstructured",  # see https://blog.langchain.dev/semi-structured-multi-modal-rag/
+    "unstructured", # see https://blog.langchain.dev/semi-structured-multi-modal-rag/
     "unstructured-inference",
     "unstructured-pytesseract",
     "tesseract",
@@ -32,6 +32,8 @@ dependencies = [
     "semantic-chunkers; python_version < '3.13'",
     "open-text-embeddings",
     "diskcache",
+    "langchain-tavily>=0.2.12",
+    "langgraph-api>=0.4.39",
 ]
 
 [tool.hatch.build.targets.wheel]

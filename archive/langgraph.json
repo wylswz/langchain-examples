@@ -1,7 +1,0 @@
-{
-    "dependencies": ["./common.py"],
-    "graphs": {
-        "memory_chat_bot": "./memory-2.py:g"
-    },
-    "env": ".env"
-  }
