@@ -12,7 +12,6 @@ from langchain.agents import AgentState
 
 model = ChatOpenAI(model="gpt-4o-mini")
 
-
 @tool
 def add_two_numbers(a: int, b: int) -> int:
     """Add two numbers"""
@@ -33,29 +32,25 @@ def divide_two_numbers(a: int, b: int) -> int:
     """Divide two numbers"""
     return a / b
 
+
 class State(AgentState):
     pass
 
 def prepare(state: State) -> State:
     print("prepare")
     return {"messages": [state["messages"][0]]}
-
-agent = create_agent(
-    tools=[add_two_numbers, multiply_two_numbers, subtract_two_numbers, divide_two_numbers], 
-    model=model,
-    system_prompt="""You are a helpful math agent that helps resolving math problems by calling the tools. 
-    Explain your reasoning before calling the tool.
-    
-    """,
-    middleware=[HumanInTheLoopMiddleware(
-        interrupt_on={
-            "add_two_numbers": {
-                "allowed_decisions": ["approve", "reject"],
-                "description": "Please review this tool execution"
-            }
-        }
-    )]
-)
+def execute(state: State) -> State:
+    agent = create_agent(
+        tools=[add_two_numbers, multiply_two_numbers, subtract_two_numbers, divide_two_numbers], 
+        model=model,
+        system_prompt="""You are a helpful math agent that helps resolving math problems by calling the tools. 
+        Explain your reasoning before calling the tool.
+        
+        """,
+        middleware=[]
+    )
+    res = agent.invoke({"messages": state["messages"]})
+    return {"messages": [res["messages"][-1]]}
 
 def cleanup(state: State) -> State:
     print("cleanup")
@@ -63,11 +58,11 @@ def cleanup(state: State) -> State:
 
 graph = StateGraph(State)
 graph.add_node("prepare", prepare)
-graph.add_node("agent", agent)
+graph.add_node("execute", execute)
 graph.add_node("cleanup", cleanup)
 graph.add_edge(START, "prepare")
-graph.add_edge("prepare", "agent")
-graph.add_edge("agent", "cleanup")
+graph.add_edge("prepare", "execute")
+graph.add_edge("execute", "cleanup")
 graph.add_edge("cleanup", END)
 
 graph
