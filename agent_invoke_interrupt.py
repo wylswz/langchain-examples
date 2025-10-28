@@ -45,9 +45,27 @@ def execute(state: State) -> State:
         model=model,
         system_prompt="""You are a helpful math agent that helps resolving math problems by calling the tools. 
         Explain your reasoning before calling the tool.
-        
         """,
-        middleware=[]
+        middleware=[HumanInTheLoopMiddleware(
+            interrupt_on={
+                "add_two_numbers": {
+                    "allowed_decisions": ["approve", "reject"],
+                    "description": "Please review this tool execution"
+                },
+                "multiply_two_numbers": {
+                    "allowed_decisions": ["approve", "reject"],
+                    "description": "Please review this tool execution"
+                },
+                "subtract_two_numbers": {
+                    "allowed_decisions": ["approve", "reject"],
+                    "description": "Please review this tool execution"
+                },  
+                "divide_two_numbers": {
+                    "allowed_decisions": ["approve", "reject"],
+                    "description": "Please review this tool execution"
+                }
+            }
+        )],
     )
     res = agent.invoke({"messages": state["messages"]})
     return {"messages": [res["messages"][-1]]}

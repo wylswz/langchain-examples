@@ -52,6 +52,18 @@ agent = create_agent(
             "add_two_numbers": {
                 "allowed_decisions": ["approve", "reject"],
                 "description": "Please review this tool execution"
+            },
+            "multiply_two_numbers": {
+                "allowed_decisions": ["approve", "reject"],
+                "description": "Please review this tool execution"
+            },
+            "subtract_two_numbers": {
+                "allowed_decisions": ["approve", "reject"],
+                "description": "Please review this tool execution"
+            },
+            "divide_two_numbers": {
+                "allowed_decisions": ["approve", "reject"],
+                "description": "Please review this tool execution"
             }
         }
     )]
