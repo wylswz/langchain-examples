@@ -10,6 +10,8 @@ from langchain_openai import ChatOpenAI
 from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langchain.agents import AgentState
 
+# This is a demo for invoking agent in a langgraph node and using human in the loop middleware to interrupt the graph execution
+
 model = ChatOpenAI(model="gpt-4o-mini")
 
 @tool

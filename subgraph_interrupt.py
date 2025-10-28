@@ -12,6 +12,7 @@ from langchain.agents import AgentState
 
 model = ChatOpenAI(model="gpt-4o-mini")
 
+# this is a demo for using agent as a subgraph (agent as a node) and using human in the loop middleware to interrupt the graph execution
 
 @tool
 def add_two_numbers(a: int, b: int) -> int:
