@@ -7,7 +7,8 @@
     ],
     "graphs": {
         "middleware-example": "./middleware-example.py:agent",
-        "checkpointer": "./checkpointer.py:graph"
+        "checkpointer": "./checkpointer.py:graph",
+        "subgraph_interrupt": "./subgraph_interrupt.py:graph"
     },
     "env": ".env"
   }
