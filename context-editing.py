@@ -14,6 +14,8 @@ from langchain_core.messages import (
     HumanMessage
 )
 
+# This is an example of doing context editing in a langchain agent
+# it propagates the context from the parent graph to the agent by creating an inner middleware
 
 class State(AgentState):
     ctx: str
