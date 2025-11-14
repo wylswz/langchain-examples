@@ -3,7 +3,7 @@ from operator import add
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 from langchain_ollama import ChatOllama
-
+from langchain_openai import ChatOpenAI
 # This is a demo for subgraph streaming where both parent and child graphs call LLMs
 # and we can see messages streamed out in real-time
 
@@ -12,28 +12,48 @@ class State(TypedDict):
     messages: Annotated[list[BaseMessage], add]
 
 # Initialize the LLM model
-model = ChatOllama(model="qwen3:8b", streaming=True)
+ollama = ChatOllama(model="qwen3:8b", streaming=True)
+openai = ChatOpenAI(model="gpt-4o-mini", streaming=True)
 
-# ============ SUBGRAPH (Child Graph) ============
+# ============ SUBGRAPH 1 (Child Graph) ============
 
-def subgraph_node(state: State) -> State:
-    """Child graph node that calls LLM"""
-    print("\n[SUBGRAPH] Calling LLM...")
+def subgraph1_node(state: State) -> State:
+    """Child graph 1 node that calls LLM"""
+    print("\n[SUBGRAPH 1] Calling LLM...")
     
-    response = model.invoke([HumanMessage(content="hello")])
+    response = ollama.invoke([HumanMessage(content="hello")])
     
-    print(f"[SUBGRAPH] Complete")
-    return {
-        "messages": [AIMessage(content=f"[Subgraph]: {response.content}")]
-    }
+    print(f"[SUBGRAPH 1] Complete")
+    return {}
 
-# Build the subgraph
-def create_subgraph():
+# Build the first subgraph
+def create_subgraph1():
     subgraph = StateGraph(State)
-    subgraph.add_node("subgraph_llm", subgraph_node)
+    subgraph.add_node("subgraph1_llm", subgraph1_node)
     
-    subgraph.add_edge(START, "subgraph_llm")
-    subgraph.add_edge("subgraph_llm", END)
+    subgraph.add_edge(START, "subgraph1_llm")
+    subgraph.add_edge("subgraph1_llm", END)
+    
+    return subgraph.compile()
+
+# ============ SUBGRAPH 2 (Child Graph) ============
+
+def subgraph2_node(state: State) -> State:
+    """Child graph 2 node that calls LLM"""
+    print("\n[SUBGRAPH 2] Calling LLM...")
+    
+    response = openai.invoke([HumanMessage(content="hello")])
+    
+    print(f"[SUBGRAPH 2] Complete")
+    return {}
+
+# Build the second subgraph
+def create_subgraph2():
+    subgraph = StateGraph(State)
+    subgraph.add_node("subgraph2_llm", subgraph2_node)
+    
+    subgraph.add_edge(START, "subgraph2_llm")
+    subgraph.add_edge("subgraph2_llm", END)
     
     return subgraph.compile()
 
@@ -43,26 +63,30 @@ def parent_node(state: State) -> State:
     """Parent graph node that calls LLM"""
     print("\n[PARENT] Calling LLM...")
     
-    response = model.invoke([HumanMessage(content="hello")])
+    response = openai.invoke([HumanMessage(content="hello")])
     
     print(f"[PARENT] Complete")
-    return {
-        "messages": [AIMessage(content=f"[Parent]: {response.content}")]
-    }
+    return {}
 
 # Build the parent graph
 def create_parent_graph():
-    # Create the subgraph
-    subgraph = create_subgraph()
+    # Create the subgraphs
+    subgraph1 = create_subgraph1()
+    subgraph2 = create_subgraph2()
     
     # Create parent graph
     parent = StateGraph(State)
     parent.add_node("parent_llm", parent_node)
-    parent.add_node("subgraph", subgraph)  # Add subgraph as a node
+    parent.add_node("subgraph1", subgraph1)  # Add subgraph 1 as a node
+    parent.add_node("subgraph2", subgraph2)  # Add subgraph 2 as a node
     
     parent.add_edge(START, "parent_llm")
-    parent.add_edge("parent_llm", "subgraph")
-    parent.add_edge("subgraph", END)
+    # Both subgraphs run in parallel after parent_llm
+    parent.add_edge("parent_llm", "subgraph1")
+    parent.add_edge("parent_llm", "subgraph2")
+    # Both subgraphs go to END
+    parent.add_edge("subgraph1", END)
+    parent.add_edge("subgraph2", END)
     
     return parent.compile()
 
@@ -87,5 +111,5 @@ if __name__ == '__main__':
     print("STREAMING OUTPUT (messages mode):")
     print("=" * 80)
     
-    for chunk in graph.stream(initial_state, stream_mode="messages", subgraphs=True):
+    for ns, chunk in graph.stream(initial_state, stream_mode="messages", subgraphs=True):
         print(chunk)
