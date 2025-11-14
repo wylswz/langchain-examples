@@ -112,4 +112,7 @@ if __name__ == '__main__':
     print("=" * 80)
     
     for ns, chunk in graph.stream(initial_state, stream_mode="messages", subgraphs=True):
-        print(chunk)
+        # () is parent graph
+        # ('subgraph1',) is subgraph 1
+        # ('subgraph2',) is subgraph 2
+        print(f'{ns}: {chunk[0].content}')
