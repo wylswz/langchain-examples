@@ -17,17 +17,17 @@ def resume():
 
 try:
     run()
-except MyException as e:
+except MyException:
     print("failed for the first time")
 
 try:
     resume()
-except MyException as e:
+except MyException:
     print("failed for the second time")
 
 try:
     resume()
-except MyException as e:
+except MyException:
     print("failed for the third time")
 
 print(cg.get_state({"configurable": {"thread_id": "thread-1"}}).values)

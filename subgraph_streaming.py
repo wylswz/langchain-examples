@@ -1,6 +1,6 @@
 from typing_extensions import Annotated, TypedDict
 from operator import add
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
@@ -21,9 +21,9 @@ def subgraph1_node(state: State) -> State:
     """Child graph 1 node that calls LLM"""
     print("\n[SUBGRAPH 1] Calling LLM...")
     
-    response = ollama.invoke([HumanMessage(content="hello")])
+    ollama.invoke([HumanMessage(content="hello")])
     
-    print(f"[SUBGRAPH 1] Complete")
+    print("[SUBGRAPH 1] Complete")
     return {}
 
 # Build the first subgraph
@@ -42,9 +42,9 @@ def subgraph2_node(state: State) -> State:
     """Child graph 2 node that calls LLM"""
     print("\n[SUBGRAPH 2] Calling LLM...")
     
-    response = openai.invoke([HumanMessage(content="hello")])
+    openai.invoke([HumanMessage(content="hello")])
     
-    print(f"[SUBGRAPH 2] Complete")
+    print("[SUBGRAPH 2] Complete")
     return {}
 
 # Build the second subgraph
@@ -63,9 +63,9 @@ def parent_node(state: State) -> State:
     """Parent graph node that calls LLM"""
     print("\n[PARENT] Calling LLM...")
     
-    response = openai.invoke([HumanMessage(content="hello")])
+    openai.invoke([HumanMessage(content="hello")])
     
-    print(f"[PARENT] Complete")
+    print("[PARENT] Complete")
     return {}
 
 # Build the parent graph

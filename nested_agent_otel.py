@@ -16,14 +16,10 @@ you can view the metrics at: http://localhost:3000 (Grafana)
 
 """
 
-import os
-from typing import Annotated
 
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
-from langchain_ollama import ChatOllama
 
 # Import OpenTelemetry middleware
 from otel_middleware import setup_otel_tracing, OtelMiddleware

@@ -1,6 +1,5 @@
 from checkpointer import graph, MyException
 from langgraph.checkpoint.memory import MemorySaver
-from datetime import datetime
 
 # This is a demo for time travel in checkpointer
 # It allows you to resume from any checkpoint in the execution history if the graph fails at any step

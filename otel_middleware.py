@@ -34,10 +34,8 @@ Usage with agent middleware (for create_agent):
 
 import time
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union, Awaitable
-from uuid import UUID
+from typing import Any, Callable, Dict, Optional, Awaitable
 from contextlib import contextmanager
-from dataclasses import dataclass
 
 from opentelemetry import trace, metrics, context as otel_context
 from opentelemetry.sdk.trace import TracerProvider
@@ -48,12 +46,8 @@ from opentelemetry.sdk.resources import Resource, SERVICE_NAME
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.trace import Status, StatusCode, SpanKind
-from opentelemetry.context import Context
 
-from langchain_core.callbacks import BaseCallbackHandler
-from langchain_core.messages import BaseMessage, AIMessage, ToolMessage
-from langchain_core.outputs import LLMResult, ChatGeneration
-from langchain_core.agents import AgentAction, AgentFinish
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool
 
 # Import for AgentMiddleware

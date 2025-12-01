@@ -1,14 +1,12 @@
 from langchain.agents import create_agent
-from langchain.agents.middleware import ContextEditingMiddleware, HumanInTheLoopMiddleware
+from langchain.agents.middleware import ContextEditingMiddleware
 from langchain.agents import AgentState
-from langchain.agents.middleware.context_editing import ContextEdit, TokenCounter, ClearToolUsesEdit
+from langchain.agents.middleware.context_editing import ContextEdit, TokenCounter
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
 
 from langgraph.graph.state import StateGraph
-from langgraph.types import interrupt
 from langgraph.graph import START, END
-from typing_extensions import TypedDict
 from langchain_core.messages import (
     AnyMessage,
     HumanMessage

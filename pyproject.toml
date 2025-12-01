@@ -47,3 +47,8 @@ only-include = ["*.py"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.7",
+]

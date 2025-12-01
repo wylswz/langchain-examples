@@ -6,7 +6,7 @@ from langchain.agents import AgentState
 
 from langgraph.runtime import Runtime
 
-from typing import Callable, Any
+from typing import Any
 
 
 llm = ChatOllama(model="qwen3:8b")
