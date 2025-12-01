@@ -3,6 +3,15 @@ This is a demo of tracing a nested agent with OpenTelemetry, including
 - token usages tracking
 - tool calls tracing
 - llm calls tracing
+
+to use this, you need to docker compose up the otel stack first:
+cd docker && docker-compose up -d
+
+then you can run the script:
+uv run python nested_agent_otel.py
+
+you can view the traces at: http://localhost:16686 (Jaeger)
+
 """
 
 import os
