@@ -266,25 +266,26 @@ Be precise and helpful.""",
 
 
 def create_main_agent(model: str = "gpt-4o-mini"):
-    """Create the main orchestrating agent with subagent tools."""
+    """Create the main orchestrating agent with subagent tools.
     
-    # Create OTel middleware for the main agent
-    main_otel_middleware = OtelMiddleware(
+    Uses a SINGLE shared OtelMiddleware instance for all agents (main and sub-agents).
+    This ensures proper context propagation and creates a unified trace hierarchy
+    where all operations are nested under a root span.
+    """
+    
+    # Create a SINGLE shared OTel middleware for ALL agents
+    # This enables automatic context propagation between main agent and sub-agents
+    shared_middleware = OtelMiddleware(
         trace_content=True,
-        service_name="main-agent",
+        service_name="langchain-agents",  # Unified service name
     )
     
-    # Create OTel middlewares for subagents (they can share or have separate instances)
-    weather_otel = OtelMiddleware(trace_content=True, service_name="weather-subagent")
-    research_otel = OtelMiddleware(trace_content=True, service_name="research-subagent")
-    utility_otel = OtelMiddleware(trace_content=True, service_name="utility-subagent")
+    # Create subagent tools - all using the SAME middleware instance
+    weather_tool = create_weather_agent_tool(model, shared_middleware)
+    research_tool = create_research_agent_tool(model, shared_middleware)
+    utility_tool = create_utility_agent_tool(model, shared_middleware)
     
-    # Create subagent tools
-    weather_tool = create_weather_agent_tool(model, weather_otel)
-    research_tool = create_research_agent_tool(model, research_otel)
-    utility_tool = create_utility_agent_tool(model, utility_otel)
-    
-    # Create the main agent with subagent tools
+    # Create the main agent with subagent tools - also using the SAME middleware
     main_agent = create_agent(
         model=model,
         tools=[weather_tool, research_tool, utility_tool],
@@ -302,11 +303,11 @@ When a user asks a question:
 
 If a query spans multiple domains, you can call multiple tools.
 Always be helpful and provide complete answers.""",
-        middleware=[main_otel_middleware],
+        middleware=[shared_middleware],
         name="main_orchestrator",
     )
     
-    return main_agent
+    return main_agent, shared_middleware
 
 
 # ============================================================
@@ -337,8 +338,8 @@ if __name__ == "__main__":
     print("  View traces at: http://localhost:16686 (Jaeger)")
     print("=" * 80)
     
-    # Create the main agent
-    agent = create_main_agent()
+    # Create the main agent with shared middleware
+    agent, middleware = create_main_agent()
     
     # Example queries that will trigger different subagents
     queries = [
@@ -357,8 +358,13 @@ if __name__ == "__main__":
         print("-" * 60)
         
         try:
-            # Invoke the agent
-            result = agent.invoke({"messages": [("user", query)]})
+            # Use middleware's invoke_traced method for automatic root span creation
+            # This ensures all operations are nested under a single trace
+            result = middleware.invoke_traced(
+                agent,
+                {"messages": [("user", query)]},
+                agent_name="main_orchestrator",
+            )
             
             # Extract and print the final response
             messages = result.get("messages", [])

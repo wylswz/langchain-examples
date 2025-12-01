@@ -39,7 +39,7 @@ from uuid import UUID
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from opentelemetry import trace, metrics
+from opentelemetry import trace, metrics, context as otel_context
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.metrics import MeterProvider
@@ -658,6 +658,62 @@ def create_traced_config(
     return {"callbacks": callbacks}
 
 
+@contextmanager
+def trace_agent_invocation(
+    agent_name: str = "agent",
+    trace_content: bool = False,
+    **attributes,
+):
+    """
+    Context manager for tracing an agent invocation.
+    
+    Use this to wrap agent.invoke() calls to create a root span that will
+    contain all nested operations (LLM calls, tool calls, sub-agent calls).
+    
+    Args:
+        agent_name: Name of the agent for the span
+        trace_content: If True, include content in traces
+        **attributes: Additional span attributes
+    
+    Example:
+        with trace_agent_invocation("main_agent"):
+            result = agent.invoke({"messages": [...]})
+    
+    This creates a trace hierarchy like:
+        agent.main_agent (root)
+        ├── llm.ChatOpenAI.gpt-4o-mini
+        ├── tool.ask_weather_agent
+        │   ├── llm.ChatOpenAI.gpt-4o-mini
+        │   ├── tool.get_weather
+        │   └── llm.ChatOpenAI.gpt-4o-mini
+        └── llm.ChatOpenAI.gpt-4o-mini
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span(
+        f"agent.{agent_name}",
+        kind=SpanKind.INTERNAL,
+    ) as span:
+        span.set_attribute("agent.name", agent_name)
+        span.set_attribute("agent.type", "invocation")
+        
+        for key, value in attributes.items():
+            if value is not None:
+                span.set_attribute(key, value)
+        
+        start_time = time.time()
+        
+        try:
+            yield span
+            span.set_status(Status(StatusCode.OK))
+        except Exception as e:
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            span.record_exception(e)
+            raise
+        finally:
+            duration_ms = (time.time() - start_time) * 1000
+            span.set_attribute("agent.duration_ms", duration_ms)
+
+
 # ============================================================
 # Agent Middleware for create_agent
 # ============================================================
@@ -705,19 +761,13 @@ class OtelMiddleware(AgentMiddleware):
         self.service_name = service_name
         self._agent_spans: Dict[str, trace.Span] = {}
         self._agent_start_times: Dict[str, float] = {}
+        self._context_tokens: Dict[str, object] = {}  # Store context tokens for proper attach/detach
         self.tools: list[BaseTool] = []
     
     @property
     def tracer(self) -> trace.Tracer:
         """Get the global tracer instance."""
         return get_tracer()
-    
-    def _get_span_context(self) -> Optional[Context]:
-        """Get current span context for parent-child relationship."""
-        current_span = trace.get_current_span()
-        if current_span and current_span.is_recording():
-            return trace.set_span_in_context(current_span)
-        return None
     
     def _extract_model_info(self, request: ModelRequest) -> Dict[str, Any]:
         """Extract model information from request."""
@@ -732,18 +782,26 @@ class OtelMiddleware(AgentMiddleware):
     # ==================== Agent Lifecycle ====================
     
     def before_agent(self, state: AgentState, runtime: Runtime) -> Dict[str, Any] | None:
-        """Called before the agent starts execution."""
+        """Called before the agent starts execution.
+        
+        Creates a span for the agent execution and attaches it to the OpenTelemetry
+        context so that all child spans (model calls, tool calls, sub-agent calls)
+        are properly nested under this span.
+        """
         run_id = str(id(runtime))
         
+        # Start a new span. If there's a current span in context (e.g., from parent agent's
+        # tool call), this span will automatically be a child of it.
+        span_name = f"agent.{self.service_name}" if self.service_name else "agent.execution"
         span = self.tracer.start_span(
-            "agent.execution",
+            span_name,
             kind=SpanKind.INTERNAL,
-            context=self._get_span_context(),
         )
         
         span.set_attribute("agent.type", "create_agent")
         if self.service_name:
             span.set_attribute("service.name", self.service_name)
+            span.set_attribute("agent.name", self.service_name)
         
         # Track message count
         messages = state.get("messages", [])
@@ -754,17 +812,29 @@ class OtelMiddleware(AgentMiddleware):
                 content = str(getattr(last_msg, "content", str(last_msg)))[:500]
                 span.set_attribute("agent.input_message", content)
         
+        # CRITICAL: Attach the span to the OpenTelemetry context
+        # This makes it the current span, so all child operations (model calls,
+        # tool calls, sub-agent invocations) will be properly nested under it
+        new_context = trace.set_span_in_context(span)
+        token = otel_context.attach(new_context)
+        
         self._agent_spans[run_id] = span
         self._agent_start_times[run_id] = time.time()
+        self._context_tokens[run_id] = token
         
         return None
     
     def after_agent(self, state: AgentState, runtime: Runtime) -> Dict[str, Any] | None:
-        """Called after the agent completes execution."""
+        """Called after the agent completes execution.
+        
+        Ends the agent execution span and detaches it from the OpenTelemetry context,
+        restoring the previous context.
+        """
         run_id = str(id(runtime))
         
         span = self._agent_spans.pop(run_id, None)
         start_time = self._agent_start_times.pop(run_id, None)
+        token = self._context_tokens.pop(run_id, None)
         
         if span:
             duration_ms = (time.time() - start_time) * 1000 if start_time else 0
@@ -777,6 +847,11 @@ class OtelMiddleware(AgentMiddleware):
             
             span.set_status(Status(StatusCode.OK))
             span.end()
+        
+        # CRITICAL: Detach the context to restore the previous span context
+        # This ensures proper context cleanup and allows parent spans to continue correctly
+        if token is not None:
+            otel_context.detach(token)
         
         return None
     
@@ -1075,6 +1150,151 @@ class OtelMiddleware(AgentMiddleware):
                 if _tool_duration_histogram:
                     _tool_duration_histogram.record(duration_ms, {"tool": tool_name})
                 
+                return result
+                
+            except Exception as e:
+                span.set_status(Status(StatusCode.ERROR, str(e)))
+                span.record_exception(e)
+                raise
+    
+    # ==================== Agent Invocation Helpers ====================
+    
+    def invoke_traced(
+        self,
+        agent,
+        input_data: Dict[str, Any],
+        agent_name: str = "agent",
+        **attributes,
+    ) -> Dict[str, Any]:
+        """
+        Invoke an agent with automatic tracing.
+        
+        This creates a root span that contains all nested operations including:
+        - LLM calls from the main agent
+        - Tool calls (which may invoke sub-agents)
+        - LLM and tool calls from sub-agents
+        
+        Since a single middleware instance is shared across all agents,
+        the context propagation ensures proper nesting of all spans.
+        
+        Args:
+            agent: The agent to invoke
+            input_data: Input data to pass to agent.invoke()
+            agent_name: Name for the root span
+            **attributes: Additional span attributes
+        
+        Returns:
+            The result from agent.invoke()
+        
+        Example:
+            middleware = OtelMiddleware(trace_content=True)
+            
+            # Create agents with shared middleware
+            main_agent = create_agent(..., middleware=[middleware])
+            sub_agent = create_agent(..., middleware=[middleware])
+            
+            # Invoke with tracing
+            result = middleware.invoke_traced(
+                main_agent,
+                {"messages": [("user", "Hello")]},
+                agent_name="main_orchestrator"
+            )
+        """
+        with self.tracer.start_as_current_span(
+            f"agent.{agent_name}",
+            kind=SpanKind.INTERNAL,
+        ) as span:
+            span.set_attribute("agent.name", agent_name)
+            span.set_attribute("agent.type", "invocation")
+            
+            if self.service_name:
+                span.set_attribute("service.name", self.service_name)
+            
+            for key, value in attributes.items():
+                if value is not None:
+                    span.set_attribute(key, value)
+            
+            # Track input message count
+            messages = input_data.get("messages", [])
+            if messages:
+                span.set_attribute("agent.input_message_count", len(messages))
+                if self.trace_content:
+                    last_msg = messages[-1]
+                    if isinstance(last_msg, tuple):
+                        content = str(last_msg[1])[:500]
+                    else:
+                        content = str(getattr(last_msg, "content", str(last_msg)))[:500]
+                    span.set_attribute("agent.input_message", content)
+            
+            start_time = time.time()
+            
+            try:
+                result = agent.invoke(input_data)
+                
+                duration_ms = (time.time() - start_time) * 1000
+                span.set_attribute("agent.duration_ms", duration_ms)
+                
+                # Track output message count
+                output_messages = result.get("messages", [])
+                if output_messages:
+                    span.set_attribute("agent.output_message_count", len(output_messages))
+                
+                span.set_status(Status(StatusCode.OK))
+                return result
+                
+            except Exception as e:
+                span.set_status(Status(StatusCode.ERROR, str(e)))
+                span.record_exception(e)
+                raise
+    
+    async def ainvoke_traced(
+        self,
+        agent,
+        input_data: Dict[str, Any],
+        agent_name: str = "agent",
+        **attributes,
+    ) -> Dict[str, Any]:
+        """Async version of invoke_traced."""
+        with self.tracer.start_as_current_span(
+            f"agent.{agent_name}",
+            kind=SpanKind.INTERNAL,
+        ) as span:
+            span.set_attribute("agent.name", agent_name)
+            span.set_attribute("agent.type", "invocation")
+            
+            if self.service_name:
+                span.set_attribute("service.name", self.service_name)
+            
+            for key, value in attributes.items():
+                if value is not None:
+                    span.set_attribute(key, value)
+            
+            # Track input message count
+            messages = input_data.get("messages", [])
+            if messages:
+                span.set_attribute("agent.input_message_count", len(messages))
+                if self.trace_content:
+                    last_msg = messages[-1]
+                    if isinstance(last_msg, tuple):
+                        content = str(last_msg[1])[:500]
+                    else:
+                        content = str(getattr(last_msg, "content", str(last_msg)))[:500]
+                    span.set_attribute("agent.input_message", content)
+            
+            start_time = time.time()
+            
+            try:
+                result = await agent.ainvoke(input_data)
+                
+                duration_ms = (time.time() - start_time) * 1000
+                span.set_attribute("agent.duration_ms", duration_ms)
+                
+                # Track output message count
+                output_messages = result.get("messages", [])
+                if output_messages:
+                    span.set_attribute("agent.output_message_count", len(output_messages))
+                
+                span.set_status(Status(StatusCode.OK))
                 return result
                 
             except Exception as e:
