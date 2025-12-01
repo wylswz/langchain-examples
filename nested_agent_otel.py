@@ -11,6 +11,8 @@ then you can run the script:
 uv run python nested_agent_otel.py
 
 you can view the traces at: http://localhost:16686 (Jaeger)
+you can view the metrics at: http://localhost:3000 (Grafana)
+# dashboard is already there.
 
 """
 
