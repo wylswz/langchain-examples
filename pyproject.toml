@@ -35,6 +35,10 @@ dependencies = [
     "langchain-tavily>=0.2.12",
     "langgraph-api>=0.4.39",
     "langchain-openai>=1.0.1",
+    # OpenTelemetry for tracing and metrics
+    "opentelemetry-api>=1.21.0",
+    "opentelemetry-sdk>=1.21.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.21.0",
 ]
 
 [tool.hatch.build.targets.wheel]
