@@ -10,7 +10,8 @@
         "checkpointer": "./checkpointer.py:graph",
         "subgraph_interrupt": "./subgraph_interrupt.py:graph",
         "agent_invoke_interrupt": "./agent_invoke_interrupt.py:graph",
-        "context-editing": "./context-editing.py:graph"
+        "context-editing": "./context-editing.py:graph",
+        "codeact": "./codeact.py:graph"
     },
     "env": ".env"
   }

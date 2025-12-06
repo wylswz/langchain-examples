@@ -6,8 +6,10 @@
 # but all operations are transparently sandboxed by session ID.
 
 import re
+import os
 import subprocess
 from pathlib import Path
+from pydantic import BaseModel
 from typing import Annotated, Literal
 
 from langchain_core.tools import tool, InjectedToolArg
@@ -36,6 +38,11 @@ DEFAULT_DEPENDENCIES: list[str] = []
 # Cache for PythonRunner instances (keyed by session_id)
 _runner_cache: dict[str, PythonRunner] = {}
 
+os.makedirs(SANDBOX_BASE_DIR, exist_ok=True)
+
+class HumanResponse(BaseModel):
+    content: str = ''
+    confirm: bool
 
 # =============================================================================
 # Sandbox Path Resolution (Internal - Hidden from Agent)
@@ -666,17 +673,21 @@ def create_agent(model_name: str = "gpt-4o", default_packages: list[str] = None)
     def human_review_node(state: MessagesState) -> Command[Literal["agent", "__end__"]]:
         """Interrupt for human review. User can say 'yes' to end or provide more instructions."""
         user_response = interrupt(
-            "Task completed. Reply 'yes' to confirm, or provide further instructions:"
+            "Task completed. Confirm or provide further instructions:"
         )
+
+        user_response = HumanResponse.model_validate(user_response)
+
         
         # If user confirms, end the conversation
-        if user_response.strip().lower() in ["yes", "y", "done", "ok", "confirmed"]:
+        if user_response.confirm:
+            print("Ending conversation")
             return Command(goto=END)
         
         # Otherwise, treat as new instructions and continue
         return Command(
             goto="agent",
-            update={"messages": [HumanMessage(content=user_response)]}
+            update={"messages": [HumanMessage(content=user_response.content)]}
         )
     
     # Build the graph
@@ -689,116 +700,13 @@ def create_agent(model_name: str = "gpt-4o", default_packages: list[str] = None)
     graph.add_edge(START, "agent")
     graph.add_conditional_edges("agent", should_continue)
     graph.add_edge("tools", "agent")
-    # human_review routes via Command in the node itself
-    
-    # Compile with checkpointer for conversation memory
-    checkpointer = MemorySaver()
-    return graph.compile(checkpointer=checkpointer)
-
+    return graph
 
 # =============================================================================
 # Main Entry Point
 # =============================================================================
+sample = 'Predict next 10 numbers: [1, 4, 8, 3, 7, 2, 8, 10, 14, 7, 21, 16, 22, 26, 19, 27, 32], you might need to do some regression'
 
-def main():
-    """Interactive CLI for the CodeAct agent."""
-    import uuid
-
-    
-    agent = create_agent(default_packages=["pandas", "numpy", "scikit-learn"])
-    thread_id = str(uuid.uuid4())
-    
-    print(f"Session ID: {thread_id}")
-    print(f"(Internal sandbox: {SANDBOX_BASE_DIR / thread_id})\n")
-    
-    while True:
-        try:
-            user_input = 'Predict next 10 numbers: [1, 4, 8, 3, 7, 2, 8, 10, 14, 7, 21, 16, 22, 26, 19, 27, 32], you might need to do some regression'
-            print(user_input)
-            if not user_input:
-                continue
-            
-            if user_input.lower() == "quit":
-                print("Goodbye! 👋")
-                break
-            
-            if user_input.lower() == "new":
-                thread_id = str(uuid.uuid4())
-                # Clear the runner cache for clean session
-                if thread_id in _runner_cache:
-                    del _runner_cache[thread_id]
-                print(f"\n🆕 New session: {thread_id}\n")
-                continue
-            
-            config = {"configurable": {"thread_id": thread_id}}
-            
-            print("\nAgent: ", end="", flush=True)
-            
-            # Stream the response
-            for event in agent.stream(
-                {"messages": [HumanMessage(content=user_input)]},
-                config=config,
-                stream_mode="values"
-            ):
-                last_message = event["messages"][-1]
-                if isinstance(last_message, AIMessage):
-                    if last_message.content:
-                        print(last_message.content)
-                    if last_message.tool_calls:
-                        for tc in last_message.tool_calls:
-                            print(f"\n🔧 Using tool: {tc['name']}")
-                elif isinstance(last_message, ToolMessage):
-                    content = last_message.content
-                    if len(content) > 500:
-                        content = content[:500] + "..."
-                    print(f"📋 Result: {content}")
-            
-            print()
-            
-            # Handle human-in-the-loop: check if agent is waiting for user input
-            while True:
-                state = agent.get_state(config)
-                if not state.next:  # No next nodes means graph has ended
-                    break
-                
-                # Get the interrupt value (prompt for user)
-                if state.tasks and state.tasks[0].interrupts:
-                    interrupt_value = state.tasks[0].interrupts[0].value
-                    print(f"\n🔄 {interrupt_value}")
-                    human_response = input("You: ").strip()
-                    
-                    if not human_response:
-                        human_response = "yes"  # Default to confirming
-                    
-                    # Resume the graph with user's response
-                    print("\nAgent: ", end="", flush=True)
-                    for event in agent.stream(
-                        Command(resume=human_response),
-                        config=config,
-                        stream_mode="values"
-                    ):
-                        last_message = event["messages"][-1]
-                        if isinstance(last_message, AIMessage):
-                            if last_message.content:
-                                print(last_message.content)
-                            if last_message.tool_calls:
-                                for tc in last_message.tool_calls:
-                                    print(f"\n🔧 Using tool: {tc['name']}")
-                        elif isinstance(last_message, ToolMessage):
-                            content = last_message.content
-                            if len(content) > 500:
-                                content = content[:500] + "..."
-                            print(f"📋 Result: {content}")
-                    print()
-                else:
-                    break
-            
-        except KeyboardInterrupt:
-            print("\n\nGoodbye! 👋")
-            break
-        except Exception as e:
-            print(f"\n❌ Error: {e}\n")
-
-
-if __name__ == "__main__":
-    main()
+graph = create_agent(
+    default_packages=["pandas", "numpy", "scikit-learn"]
+)
