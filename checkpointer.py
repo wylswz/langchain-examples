@@ -5,14 +5,17 @@ import random
 from operator import add
 
 
-
 # This is a demo for checkpointer
 # graph step may fail, in which case, we can resume the graph from the last checkpoint
+
 
 class MyException(Exception):
     pass
 
-def add_messages(messages: Sequence[BaseMessage], new_messages: Sequence[BaseMessage] | BaseMessage) -> Sequence[BaseMessage]:
+
+def add_messages(
+    messages: Sequence[BaseMessage], new_messages: Sequence[BaseMessage] | BaseMessage
+) -> Sequence[BaseMessage]:
     if isinstance(new_messages, BaseMessage):
         messages.append(new_messages)
         return messages
@@ -23,9 +26,11 @@ class State(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     failures: Annotated[int, add]
 
+
 def random_fail() -> State:
     if random.random() < 0.5:
         raise MyException("Random failure")
+
 
 def step_1(state: State) -> State:
     return {"messages": [HumanMessage(content="this is step 1")]}

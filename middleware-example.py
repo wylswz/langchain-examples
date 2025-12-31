@@ -13,13 +13,15 @@ llm = ChatOllama(model="qwen3:8b")
 
 tools = [TavilySearch(max_results=1)]
 
+
 class AuditMiddleware(AgentMiddleware):
     def __init__(self):
         pass
-    
+
     def after_model(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
         print(state)
         return None
+
 
 prompt = """
 You are a personal assistant that helps user to accomplish their tasks by doing 
@@ -38,11 +40,10 @@ agent = create_agent(
             interrupt_on={
                 "tavily_search": {
                     "allowed_decisions": ["approve", "reject"],
-                    "description": "Please review the search results"
+                    "description": "Please review the search results",
                 }
             }
         ),
-        AuditMiddleware()
-    ]
+        AuditMiddleware(),
+    ],
 )
-

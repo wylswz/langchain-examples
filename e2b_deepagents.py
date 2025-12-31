@@ -12,8 +12,10 @@ def handle_result(result: CommandResult):
         raise Exception(result.stderr)
     print(result.stdout)
 
+
 def prepare_sandbox():
-    return Sandbox.create(template='runner')
+    return Sandbox.create(template="runner")
+
 
 if __name__ == "__main__":
     sandbox = None
@@ -24,4 +26,3 @@ if __name__ == "__main__":
         sandbox.commands.run("apt list")
     finally:
         sandbox.kill() if sandbox else None
-    

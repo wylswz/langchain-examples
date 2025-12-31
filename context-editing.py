@@ -7,13 +7,11 @@ from langchain_ollama import ChatOllama
 
 from langgraph.graph.state import StateGraph
 from langgraph.graph import START, END
-from langchain_core.messages import (
-    AnyMessage,
-    HumanMessage
-)
+from langchain_core.messages import AnyMessage, HumanMessage
 
 # This is an example of doing context editing in a langchain agent
 # it propagates the context from the parent graph to the agent by creating an inner middleware
+
 
 class State(AgentState):
     ctx: str
@@ -25,8 +23,9 @@ def book_ticket(username: str):
     return {
         "success": True,
         "ticket_id": "1234567890",
-        "message": f"Ticket successfully booked for {username}"
+        "message": f"Ticket successfully booked for {username}",
     }
+
 
 @tool
 def get_ticket_status(ticket_id: str):
@@ -37,16 +36,19 @@ def get_ticket_status(ticket_id: str):
         "date": "2025-11-10",
         "time": "10:00",
         "price": 100,
-        "status": "booked"
+        "status": "booked",
     }
+
 
 def init_ctx(state: State) -> State:
     return {"ctx": "The user is called yunlu"}
 
-def call_agent(state: State) -> State:
 
+def call_agent(state: State) -> State:
     class InjectCtxEdit(ContextEdit):
-        def apply(self, messages: list[AnyMessage], *, count_tokens: TokenCounter) -> None:
+        def apply(
+            self, messages: list[AnyMessage], *, count_tokens: TokenCounter
+        ) -> None:
             print(f"Injecting ctx: {state['ctx']}")
             messages.append(HumanMessage(content=state["ctx"]))
 
@@ -57,11 +59,13 @@ def call_agent(state: State) -> State:
         You are a agent that helps user by calling tools. If there is no more tools to be called,
         finish the conversation.
         """,
-        middleware=[ContextEditingMiddleware(
-            edits=[
-                InjectCtxEdit(),
-            ]
-        )],
+        middleware=[
+            ContextEditingMiddleware(
+                edits=[
+                    InjectCtxEdit(),
+                ]
+            )
+        ],
     )
     return agent.invoke({"messages": state["messages"]})
 

@@ -9,10 +9,13 @@ from langgraph.graph import START, END
 
 SIG_BEGIN_STREAM = "begin_stream"
 
+
 def get_model():
     return ChatOllama(model="llama3.2:3b", temperature=0.0)
 
+
 prompt = "show me some latest ai agent trends"
+
 
 class State(TypedDict):
     messages: list[str]
@@ -22,13 +25,16 @@ def prepare(s: State) -> State:
     get_model().invoke(prompt)
     return {"messages": []}
 
+
 def begin_stream(s: State) -> State:
     get_stream_writer()({"signal": SIG_BEGIN_STREAM})
     return {"messages": []}
 
+
 def stream(s: State) -> State:
     get_model().invoke(prompt)
     return {"messages": []}
+
 
 graph = StateGraph(State)
 graph.add_node("prepare", prepare)
@@ -41,13 +47,15 @@ graph.add_edge("stream", END)
 graph = graph.compile()
 
 
-if __name__ == '__main__':
-    thread_id = '1'
+if __name__ == "__main__":
+    thread_id = "1"
     print_token = False
-    for (stream_type, chunk) in graph.stream({"messages": ["Hello, how are you?"]}, stream_mode=["custom", "messages"]):
+    for stream_type, chunk in graph.stream(
+        {"messages": ["Hello, how are you?"]}, stream_mode=["custom", "messages"]
+    ):
         if stream_type == "messages":
             if print_token:
-                print(chunk[0].content, end='')
+                print(chunk[0].content, end="")
         elif stream_type == "custom":
             if chunk["signal"] == SIG_BEGIN_STREAM:
                 print("begin_stream")
