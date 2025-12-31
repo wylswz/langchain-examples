@@ -1,17 +1,9 @@
 from e2b_code_interpreter import Template
+from e2b_code_interpreter import AsyncSandbox
 
-apt_dependencies = ["git", "curl"]
-
-pip_requirements = [
-    "requests",
-    "pandas",
-    "numpy",
-    "matplotlib",
-    "seaborn",
-    "scikit-learn",
-    "scipy",
-    "markdown",
-    "pillow",
+pip_requirements = []
+npm_requirements = [
+    "@playwright/test",
 ]
 
 
@@ -20,13 +12,8 @@ def prepare_template():
     This will build a template. It's just like image building, which is time consuming.
     make sure do this ahead of time.
     """
-    template = (
-        Template()
-        .from_base_image()
-        .apt_install(apt_dependencies)
-        .pip_install(pip_requirements)
-    )
-    template = Template.build(template, alias="runner", cpu_count=1, memory_mb=128)
+    template = Template().from_node_image().npm_install(npm_requirements)
+    template = Template.build(template, alias="runner", cpu_count=2, memory_mb=2048)
     return template
 
 

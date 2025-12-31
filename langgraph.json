@@ -11,7 +11,8 @@
         "subgraph_interrupt": "./subgraph_interrupt.py:graph",
         "agent_invoke_interrupt": "./agent_invoke_interrupt.py:graph",
         "context-editing": "./context-editing.py:graph",
-        "codeact": "./codeact.py:graph"
+        "codeact": "./codeact.py:graph",
+        "e2b_deepagents": "./e2b_deepagents.py:graph"
     },
     "env": ".env"
   }
