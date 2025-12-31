@@ -25,7 +25,7 @@ if not E2B_API_KEY:
 
 # you will need to run 
 # e2b_sandbox.py to create one, or just create it on website
-SANDBIX_ID = 'ic3a5h1lbb2uiwskq4ezt'
+SANDBIX_ID = 'irwuen86cxputdtbfbbin'
 
 MODEL = ChatOpenAI(model="gpt-4.1")
 
