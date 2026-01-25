@@ -6,6 +6,8 @@ async def create_sandbox():
     print(await sandbox.get_info())
     return sandbox
 
+
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(create_sandbox())

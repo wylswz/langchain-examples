@@ -2,7 +2,7 @@ import os
 from typing import TypedDict
 from attr import dataclass
 from e2b import FileType
-from e2b_code_interpreter import AsyncSandbox   
+from e2b_code_interpreter import AsyncSandbox
 from deepagents import create_deep_agent
 from langchain_openai import ChatOpenAI
 from langchain.agents.middleware import AgentMiddleware
@@ -23,9 +23,9 @@ E2B_API_KEY = os.getenv("E2B_API_KEY")
 if not E2B_API_KEY:
     raise Exception("E2B_API_KEY is not set")
 
-# you will need to run 
+# you will need to run
 # e2b_sandbox.py to create one, or just create it on website
-SANDBIX_ID = 'irwuen86cxputdtbfbbin'
+SANDBIX_ID = "irwuen86cxputdtbfbbin"
 
 MODEL = ChatOpenAI(model="gpt-4.1")
 
@@ -109,7 +109,7 @@ async def bash(cmd: str, runtime: ToolRuntime) -> BashResult:
             "stdout": ret.stdout,
             "stderr": ret.stderr,
             "exit_code": ret.exit_code,
-        }   
+        }
     except Exception as e:
         return {
             "stdout": "",
@@ -131,6 +131,7 @@ async def walk_dir(sandbox: AsyncSandbox, path: str) -> list[str]:
             ret.extend(await walk_dir(sandbox, entry.path))
     return ret
 
+
 @tool
 async def download_artifact(path: str, tool_rt: ToolRuntime) -> str:
     """
@@ -139,29 +140,30 @@ async def download_artifact(path: str, tool_rt: ToolRuntime) -> str:
     """
     try:
         rid = tool_rt.config["configurable"]["thread_id"]
-        output_dir = os.path.join('output', rid)
+        output_dir = os.path.join("output", rid)
         await aos.makedirs(output_dir, exist_ok=True)
         entries = await walk_dir(SandboxMiddleware.SANDBOX, path)
         for entry in entries:
             content = await SandboxMiddleware.SANDBOX.files.read(entry, format="bytes")
             # Make entry path relative by stripping leading slash if present
-            relative_entry = entry.lstrip('/')
+            relative_entry = entry.lstrip("/")
             local_path = os.path.join(output_dir, relative_entry)
             parent_dir = os.path.dirname(local_path)
             if parent_dir != "":
                 await aos.makedirs(parent_dir, exist_ok=True)
-            async with aiofiles.open(local_path, 'wb') as f:
+            async with aiofiles.open(local_path, "wb") as f:
                 await f.write(content)
         return output_dir
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         return f"Error downloading artifact: {str(e)}"
 
-class SandboxMiddleware(AgentMiddleware[AgentState]):
 
+class SandboxMiddleware(AgentMiddleware[AgentState]):
     SANDBOX: AsyncSandbox
-    
+
     def __init__(self):
         pass
 
@@ -175,6 +177,7 @@ class SandboxMiddleware(AgentMiddleware[AgentState]):
     ) -> dict[str, Any] | None:
         return {}
 
+
 graph = create_agent(
     MODEL,
     system_prompt=WORKER_PROMPT,
@@ -186,13 +189,23 @@ graph = create_agent(
     ],
 )
 
+
 async def main():
-    stream = graph.astream({
-            "messages": [HumanMessage(content="perform a business analysis on the company: langgenius")],
-        }, stream_mode="messages")
-    async for (message, _) in stream:
+    stream = graph.astream(
+        {
+            "messages": [
+                HumanMessage(
+                    content="perform a business analysis on the company: langgenius"
+                )
+            ],
+        },
+        stream_mode="messages",
+    )
+    async for message, _ in stream:
         print(message.content, end="")
+
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())
