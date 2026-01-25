@@ -1,6 +1,7 @@
 """智能标签助手 - 使用 LLM 结构化输出为陈述打标签"""
 
 import csv
+import os
 from pathlib import Path
 
 from openpyxl import load_workbook, Workbook
@@ -134,9 +135,43 @@ def save_file(file_path: str, file_type: str, raw_data, output_path: str = ""):
     return save_path
 
 
-def create_tagger_llm():
-    """创建用于标签识别的 LLM"""
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+def create_tagger_llm(
+    model: str = None,
+    base_url: str = None,
+    api_key: str = None,
+    temperature: float = 0,
+):
+    """创建用于标签识别的 LLM
+    
+    Args:
+        model: 模型名称，默认从 OPENAI_MODEL 环境变量读取，否则使用 "gpt-4o-mini"
+        base_url: API 基础 URL，默认从 OPENAI_BASE_URL 环境变量读取
+        api_key: API Key，默认从 OPENAI_API_KEY 环境变量读取
+        temperature: 温度参数，默认为 0
+    
+    Returns:
+        配置了结构化输出的 LLM
+    """
+    # 从环境变量读取配置
+    model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    base_url = base_url or os.getenv("OPENAI_BASE_URL")
+    api_key = api_key or os.getenv("OPENAI_API_KEY")
+    
+    # 构建参数
+    llm_kwargs = {
+        "model": model,
+        "temperature": temperature,
+    }
+    
+    # 如果提供了 base_url，说明使用私有部署模型
+    if base_url:
+        llm_kwargs["base_url"] = base_url
+    
+    # 如果提供了 api_key，使用它
+    if api_key:
+        llm_kwargs["api_key"] = api_key
+    
+    llm = ChatOpenAI(**llm_kwargs)
     return llm.with_structured_output(TagResult)
 
 

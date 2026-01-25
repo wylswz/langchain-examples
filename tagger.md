@@ -47,7 +47,9 @@ cd langchain-examples
 uv sync
 ```
 
-### 3. 配置 OpenAI API Key
+### 3. 配置 API
+
+#### 使用 OpenAI 官方 API
 
 创建 `.env` 文件：
 ```bash
@@ -58,6 +60,65 @@ echo "OPENAI_API_KEY=sk-your-api-key" > .env
 ```bash
 export OPENAI_API_KEY=sk-your-api-key
 ```
+
+#### 使用私有部署模型（兼容 OpenAI API）
+
+如果使用私有部署的大模型（如 vLLM、Ollama、LocalAI 等），需要配置：
+
+创建 `.env` 文件：
+```bash
+cat > .env << EOF
+OPENAI_BASE_URL=http://localhost:8000/v1
+OPENAI_API_KEY=not-needed  # 如果不需要认证，可以设置为任意值
+OPENAI_MODEL=your-model-name  # 可选，默认使用 gpt-4o-mini
+EOF
+```
+
+或设置环境变量：
+```bash
+export OPENAI_BASE_URL=http://localhost:8000/v1
+export OPENAI_API_KEY=not-needed
+export OPENAI_MODEL=your-model-name
+```
+
+**常见私有模型部署示例：**
+
+1. **vLLM** (推荐用于生产环境)
+   ```bash
+   # 启动 vLLM 服务
+   python -m vllm.entrypoints.openai.api_server \
+       --model your-model-path \
+       --port 8000
+   
+   # 配置
+   export OPENAI_BASE_URL=http://localhost:8000/v1
+   export OPENAI_MODEL=your-model-name
+   ```
+
+2. **Ollama**
+   ```bash
+   # 启动 Ollama（默认端口 11434）
+   ollama serve
+   
+   # 配置（Ollama 使用不同的路径格式）
+   export OPENAI_BASE_URL=http://localhost:11434/v1
+   export OPENAI_MODEL=llama2  # 或你安装的其他模型
+   ```
+
+3. **LocalAI**
+   ```bash
+   # 启动 LocalAI
+   local-ai serve
+   
+   # 配置
+   export OPENAI_BASE_URL=http://localhost:8080/v1
+   export OPENAI_MODEL=your-model-name
+   ```
+
+4. **其他兼容 OpenAI API 的服务**
+   - 确保服务提供 `/v1/chat/completions` 端点
+   - 设置 `OPENAI_BASE_URL` 为服务地址
+   - 设置 `OPENAI_MODEL` 为模型名称
 
 ### 4. 准备数据文件
 
@@ -133,3 +194,72 @@ uv run python tagger.py test_data_extended.xlsx -s 3 -o result.xlsx
 --------------------------------------------------
 文件已保存: test_data.csv
 ```
+
+## 使用私有部署模型
+
+### 环境变量配置
+
+程序支持通过环境变量配置私有模型，优先级如下：
+1. 命令行参数（如果将来添加）
+2. 环境变量
+3. 默认值
+
+| 环境变量 | 说明 | 默认值 |
+|---------|------|--------|
+| `OPENAI_BASE_URL` | API 基础 URL，设置后使用私有模型 | 无（使用 OpenAI 官方 API） |
+| `OPENAI_API_KEY` | API Key | 从环境变量读取 |
+| `OPENAI_MODEL` | 模型名称 | `gpt-4o-mini` |
+
+### 配置示例
+
+**使用 OpenAI 官方 API：**
+```bash
+export OPENAI_API_KEY=sk-your-api-key
+# OPENAI_BASE_URL 不设置，使用默认的 OpenAI API
+```
+
+**使用本地 vLLM 服务：**
+```bash
+export OPENAI_BASE_URL=http://localhost:8000/v1
+export OPENAI_API_KEY=not-needed
+export OPENAI_MODEL=Qwen/Qwen2.5-7B-Instruct
+```
+
+**使用 Ollama：**
+```bash
+export OPENAI_BASE_URL=http://localhost:11434/v1
+export OPENAI_MODEL=llama2
+```
+
+**使用远程私有 API：**
+```bash
+export OPENAI_BASE_URL=https://your-api-server.com/v1
+export OPENAI_API_KEY=your-api-key
+export OPENAI_MODEL=your-model-name
+```
+
+### 验证配置
+
+运行程序前，可以检查环境变量：
+```bash
+echo $OPENAI_BASE_URL
+echo $OPENAI_MODEL
+```
+
+如果 `OPENAI_BASE_URL` 已设置，程序会使用私有模型；否则使用 OpenAI 官方 API。
+
+### 注意事项
+
+1. **API 兼容性**：确保私有模型服务完全兼容 OpenAI API 格式，特别是：
+   - 支持 `/v1/chat/completions` 端点
+   - 请求/响应格式与 OpenAI 一致
+   - 支持 `stream: false` 参数
+
+2. **结构化输出**：程序使用 Pydantic 结构化输出，确保模型支持 `response_format` 参数（OpenAI 格式）
+
+3. **模型能力**：建议使用支持指令跟随的模型（如 ChatGLM、Qwen、Llama2-Chat 等）
+
+4. **性能**：私有模型可能响应较慢，处理大量数据时建议：
+   - 使用更快的模型
+   - 增加并发处理（需要修改代码）
+   - 使用批处理 API（如果支持）
